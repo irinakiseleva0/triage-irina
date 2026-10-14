@@ -17,7 +17,15 @@ export default function ChatPage() {
     event.preventDefault();
     if (isSending || !text.trim()) return;
 
-    const message = text;
+    const message = text.trim();
+
+    const conversation = [
+      ...messages.map((item) => ({
+        role: item.role,
+        content: item.text,
+      })),
+      { role: "user" as const, content: message },
+    ];
     setIsSending(true);
     setError(null);
 
@@ -25,16 +33,16 @@ export default function ChatPage() {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ messages: conversation }),
       });
       const data: unknown = await response.json();
 
       if (!response.ok) {
         const detail =
           typeof data === "object" &&
-          data !== null &&
-          "error" in data &&
-          typeof data.error === "string"
+            data !== null &&
+            "error" in data &&
+            typeof data.error === "string"
             ? data.error
             : "Unable to send your message. Please try again.";
         throw new Error(detail);
