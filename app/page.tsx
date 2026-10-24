@@ -1,114 +1,132 @@
 "use client";
 
+import Link from "next/link";
 import { useState, type FormEvent } from "react";
+import type { TriageResponse } from "../lib/schema";
+import { TriageResponseSchema } from "../lib/schema";
 
-type Message = {
-  role: "user" | "assistant";
-  text: string;
+const errorMessages: Record<string, string> = {
+  invalid_model_output: "The model returned an invalid result. Please try again.",
+  rate_limited: "Too many requests. Please try again shortly.",
+  triage_unavailable: "Triage is currently unavailable. Please try again later.",
+  triage_timeout: "Triage timed out. Please try again.",
+  internal_error: "Something went wrong. Please try again.",
 };
 
-export default function ChatPage() {
-  const [text, setText] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isSending, setIsSending] = useState(false);
+export default function TriagePage() {
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+  const [result, setResult] = useState<TriageResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function sendMessage(event: FormEvent<HTMLFormElement>) {
+  async function triage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (isSending || !text.trim()) return;
+    if (isLoading || !subject.trim() || !body.trim()) return;
 
-    const message = text.trim();
-
-    const conversation = [
-      ...messages.map((item) => ({
-        role: item.role,
-        content: item.text,
-      })),
-      { role: "user" as const, content: message },
-    ];
-    setIsSending(true);
+    setIsLoading(true);
+    setResult(null);
     setError(null);
 
     try {
-      const response = await fetch("/api/chat", {
+      const response = await fetch("/api/triage", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: conversation }),
+        body: JSON.stringify({ ticket: { subject, body } }),
       });
       const data: unknown = await response.json();
 
       if (!response.ok) {
-        const detail =
+        const code =
           typeof data === "object" &&
-            data !== null &&
-            "error" in data &&
-            typeof data.error === "string"
+          data !== null &&
+          "error" in data &&
+          typeof data.error === "string"
             ? data.error
-            : "Unable to send your message. Please try again.";
-        throw new Error(detail);
+            : "internal_error";
+        const message = Object.hasOwn(errorMessages, code)
+          ? errorMessages[code]
+          : response.status === 400
+            ? code
+            : errorMessages.internal_error;
+        setError(message);
+        return;
       }
 
-      if (
-        typeof data !== "object" ||
-        data === null ||
-        !("answer" in data) ||
-        typeof data.answer !== "string"
-      ) {
-        throw new Error("The server returned an invalid reply. Please try again.");
+      const parsed = TriageResponseSchema.safeParse(data);
+      if (!parsed.success) {
+        setError(errorMessages.invalid_model_output);
+        return;
       }
-
-      const answer = data.answer;
-      setMessages((previous) => [
-        ...previous,
-        { role: "user", text: message },
-        { role: "assistant", text: answer },
-      ]);
-      setText("");
-    } catch (error) {
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Unable to send your message. Please try again.",
-      );
+      setResult(parsed.data);
+    } catch {
+      setResult(null);
+      setError("Unable to triage your ticket. Please try again.");
     } finally {
-      setIsSending(false);
+      setIsLoading(false);
     }
   }
 
   return (
-    <main className="chat">
-      <h1>Support chat</h1>
-      <p>Send a message and get an echo reply.</p>
-      <section
-        className="messages"
-        role="log"
-        aria-label="Chat messages"
-        aria-live="polite"
-      >
-        {messages.length === 0 && <p>No messages yet.</p>}
-        {messages.map((message, index) => (
-          <div className={`message ${message.role}`} key={index}>
-            <strong>{message.role === "user" ? "You" : "Assistant"}</strong>
-            <p>{message.text}</p>
-          </div>
-        ))}
-      </section>
-      <form onSubmit={sendMessage} aria-busy={isSending}>
-        <label htmlFor="message">Your message</label>
-        <textarea
-          id="message"
-          value={text}
-          onChange={(event) => setText(event.target.value)}
-          placeholder="Describe what you need help with..."
-          rows={3}
+    <main className="triage">
+      <nav aria-label="Main navigation">
+        <Link href="/" aria-current="page">Triage</Link>
+        <Link href="/chat">Chat</Link>
+        <Link href="/smoke">Smoke</Link>
+        <Link href="/admin">Admin</Link>
+      </nav>
+      <h1>Ticket triage</h1>
+      <form onSubmit={triage} aria-busy={isLoading}>
+        <label htmlFor="subject">Subject</label>
+        <input
+          id="subject"
+          value={subject}
+          onChange={(event) => setSubject(event.target.value)}
           required
-          disabled={isSending}
+          disabled={isLoading}
         />
-        <button type="submit" disabled={isSending || !text.trim()}>
-          {isSending ? "Sending..." : "Send"}
+        <label htmlFor="body">Body</label>
+        <textarea
+          id="body"
+          value={body}
+          onChange={(event) => setBody(event.target.value)}
+          rows={6}
+          required
+          disabled={isLoading}
+        />
+        <button type="submit" disabled={isLoading || !subject.trim() || !body.trim()}>
+          {isLoading ? "Triaging..." : "Triage"}
         </button>
         {error && <p role="alert">{error}</p>}
       </form>
+      {result && (
+        <section className="triage-result" aria-label="Triage result" aria-live="polite">
+          <h2>Result</h2>
+          <dl>
+            <dt>Category</dt><dd>{result.category}</dd>
+            <dt>Priority</dt><dd>{result.priority}</dd>
+            <dt>Summary</dt><dd>{result.summary}</dd>
+            <dt>Suggested action</dt><dd>{result.suggested_action}</dd>
+            <dt>Prompt version</dt><dd>{result.promptVersion}</dd>
+            <dt>Model</dt><dd>{result.model}</dd>
+          </dl>
+          <h3>Token usage</h3>
+          {result.usage === null ? (
+            <p>not reported</p>
+          ) : (
+            <>
+              <dl>
+                <dt>Input</dt><dd>{result.usage.inputTokens}</dd>
+                <dt>Output</dt><dd>{result.usage.outputTokens}</dd>
+                <dt>Total</dt><dd>{result.usage.totalTokens}</dd>
+              </dl>
+              {result.usage.totalTokens > result.usage.inputTokens + result.usage.outputTokens && (
+                <p>Reasoning (hidden): {result.usage.totalTokens - result.usage.inputTokens - result.usage.outputTokens}</p>
+              )}
+            </>
+          )}
+        </section>
+      )}
     </main>
   );
 }

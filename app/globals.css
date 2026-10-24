@@ -9,7 +9,8 @@ body {
   font-family: Arial, sans-serif;
 }
 
-.chat {
+.chat,
+.triage {
   max-width: 680px;
   margin: 48px auto;
   padding: 24px;
@@ -48,6 +49,7 @@ form {
   margin-top: 20px;
 }
 
+input,
 textarea,
 button {
   padding: 12px;
@@ -75,4 +77,29 @@ button:disabled {
 
 [role="alert"] {
   color: #a51d25;
+}
+
+.triage nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.triage-result {
+  margin-top: 24px;
+  padding: 20px;
+  border: 1px solid #ccd3df;
+  border-radius: 8px;
+  background: white;
+  overflow-wrap: anywhere;
+}
+
+.triage-result dt {
+  margin-top: 12px;
+  font-weight: bold;
+}
+
+.triage-result dd {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
 }
