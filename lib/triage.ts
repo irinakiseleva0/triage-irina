@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import { llm, model } from "./llm";
 import { TRIAGE_SYSTEM_PROMPT } from "./prompt";
-import { TriageSchema, type TriageResult, type TokenUsage } from "./schema";
+import { TriageSchema, ticketToText, type TriageResult, type TokenUsage } from "./schema";
 
 export class LlmInvalidOutputError extends Error {}
 
@@ -14,7 +14,7 @@ export async function triageTicket(ticket: {
   latencyMs: number;
   model: string;
 }> {
-  const ticketText = `${ticket.subject}\n\n${ticket.body}`;
+  const ticketText = ticketToText(ticket);
 
   if (!model) {
     throw new Error("LLM_MODEL is not configured.");

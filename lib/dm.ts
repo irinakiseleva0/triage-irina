@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import { TriageSchema } from "./schema";
+import { TriageSchema, ticketToText } from "./schema";
 
 type DmErrorCode = "dm_invalid_output" | "dm_timeout" | "dm_rate_limited" | "dm_unavailable" | "dm_config";
 
@@ -59,7 +59,7 @@ export async function dmTriage(ticket: { subject: string; body: string }) {
       cache: "no-store",
       body: JSON.stringify({
         model,
-        state: `${ticket.subject}\n\n${ticket.body}`,
+        state: ticketToText(ticket),
         questions: {
           category: {
             type: "choice",

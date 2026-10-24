@@ -2,7 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { llm, model } from "./llm";
 import { LlmInvalidOutputError } from "./triage";
-import type { TokenUsage, TriageResult } from "./schema";
+import { ticketToText, type TokenUsage, type TriageResult } from "./schema";
 
 export const SUMMARY_PROMPT_VERSION = "summary-v1";
 const SummarySchema = z.object({
@@ -26,7 +26,7 @@ export async function summarizeTicket(
     model,
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: `Decided category: ${decision.category}\nDecided priority: ${decision.priority}\n<ticket>\n${ticket.subject}\n\n${ticket.body}\n</ticket>` },
+      { role: "user", content: `Decided category: ${decision.category}\nDecided priority: ${decision.priority}\n<ticket>\n${ticketToText(ticket)}\n</ticket>` },
     ],
     ...(mode === "json_schema" ? {
       response_format: {

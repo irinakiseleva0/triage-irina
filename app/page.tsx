@@ -23,7 +23,7 @@ export default function TriagePage() {
 
   async function triage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (isLoading || !subject.trim() || !body.trim()) return;
+    if (isLoading || !body.trim()) return;
 
     setIsLoading(true);
     setResult(null);
@@ -85,12 +85,11 @@ export default function TriagePage() {
           <option value="dm">Decision model</option>
           <option value="dm_llm">Decision model + LLM text</option>
         </select>
-        <label htmlFor="subject">Subject</label>
+        <label htmlFor="subject">Subject (optional)</label>
         <input
           id="subject"
           value={subject}
           onChange={(event) => setSubject(event.target.value)}
-          required
           disabled={isLoading}
         />
         <label htmlFor="body">Body</label>
@@ -102,7 +101,7 @@ export default function TriagePage() {
           required
           disabled={isLoading}
         />
-        <button type="submit" disabled={isLoading || !subject.trim() || !body.trim()}>
+        <button type="submit" disabled={isLoading || !body.trim()}>
           {isLoading ? "Triaging..." : "Triage"}
         </button>
         {error && <p role="alert">{error}</p>}

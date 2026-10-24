@@ -16,14 +16,18 @@ export type TriageResult = z.infer<typeof TriageSchema>;
 export const StrategySchema = z.enum(["llm", "dm", "dm_llm"]);
 export type Strategy = z.infer<typeof StrategySchema>;
 
+export function ticketToText({ subject, body }: { subject: string; body: string }): string {
+  return subject.trim() ? `${subject}\n\n${body}` : body;
+}
+
 export const TriageRequestSchema = z.object({
   strategy: StrategySchema.default("llm"),
   ticket: z.object({
-    subject: z.string().trim().min(1, "Subject is required"),
+    subject: z.string().trim(),
     body: z.string().trim().min(1, "Body is required"),
   }),
 }).refine(
-  ({ ticket }) => ticket.subject.length + 2 + ticket.body.length <= 5000,
+  ({ ticket }) => ticketToText(ticket).length <= 5000,
   { message: "Ticket is too long (max 5000 characters)" }
 );
 
