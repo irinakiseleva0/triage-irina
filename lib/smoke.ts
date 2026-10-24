@@ -3,9 +3,8 @@ import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
-import { PROMPT_VERSION } from "./prompt";
 import { TriageRequestSchema, TriageSchema } from "./schema";
-import { mapTriageError, triageTicket } from "./triage";
+import { mapStrategyError, runStrategy, strategyPromptVersion } from "./strategy";
 import { calculateCost } from "./usage";
 import {
   OutcomeSchema, SmokeRequestSchema, SmokeResponseSchema,
@@ -47,12 +46,8 @@ export function sampleTickets<T>(tickets: readonly T[], size: number): T[] {
   return shuffled.slice(0, size);
 }
 
-// Keep strategy dispatch here so future strategies require just one new branch.
 export async function runTicket(ticket: { subject: string; body: string }, strategy: Strategy) {
-  switch (strategy) {
-    case "llm": return triageTicket(ticket);
-    default: throw new Error("Unsupported strategy.");
-  }
+  return runStrategy(ticket, strategy);
 }
 
 export async function runSmoke(input: SmokeRequest): Promise<SmokeResponse> {
@@ -64,7 +59,10 @@ export async function runSmoke(input: SmokeRequest): Promise<SmokeResponse> {
   const configuredDelay = Number(process.env.SMOKE_DELAY_MS);
   const delay = Number.isFinite(configuredDelay) && configuredDelay >= 0 ? configuredDelay : 0;
   const rows: SmokeRow[] = [];
-  let model = process.env.LLM_MODEL ?? "unknown";
+  let model = request.strategy === "llm" ? process.env.LLM_MODEL ?? "unknown"
+    : request.strategy === "dm" ? process.env.DM_MODEL ?? "unknown"
+    : `${process.env.DM_MODEL ?? "unknown"} + ${process.env.LLM_MODEL ?? "unknown"}`;
+  let promptVersion = strategyPromptVersion(request.strategy);
   let called = false;
 
   for (const ticket of tickets) {
@@ -88,6 +86,7 @@ export async function runSmoke(input: SmokeRequest): Promise<SmokeResponse> {
       try {
         const response = await runTicket(parsed.data.ticket, request.strategy);
         model = response.model;
+        promptVersion = response.promptVersion;
         Object.assign(row, {
           outcome: "ok",
           predictedCategory: response.result.category,
@@ -98,10 +97,10 @@ export async function runSmoke(input: SmokeRequest): Promise<SmokeResponse> {
           inputTokens: response.usage?.inputTokens ?? null,
           outputTokens: response.usage?.outputTokens ?? null,
           totalTokens: response.usage?.totalTokens ?? null,
-          costUsd: calculateCost(response.usage?.inputTokens ?? null, response.usage?.outputTokens ?? null),
+          costUsd: response.costUsd,
         });
       } catch (error) {
-        row.outcome = OutcomeSchema.parse(mapTriageError(error).error);
+        row.outcome = OutcomeSchema.parse(mapStrategyError(error).error);
         // Never log provider error objects: they may contain credentials or ticket text.
         console.error("Smoke ticket failed", { ticketId: row.ticketId, outcome: row.outcome });
       }
@@ -118,7 +117,7 @@ export async function runSmoke(input: SmokeRequest): Promise<SmokeResponse> {
   return SmokeResponseSchema.parse({
     rows,
     summary: {
-      runId, timestamp, ...request, model, promptVersion: PROMPT_VERSION, outcomes, labelled,
+      runId, timestamp, ...request, model, promptVersion, outcomes, labelled,
       categoryMismatches: labelled ? categoryMismatches : null,
       priorityMismatches: labelled ? priorityMismatches : null,
       categoryAccuracy: labelled && ok.length ? (ok.length - categoryMismatches) / ok.length : null,
@@ -128,7 +127,7 @@ export async function runSmoke(input: SmokeRequest): Promise<SmokeResponse> {
       totalInputTokens: ok.reduce((sum, row) => sum + (row.inputTokens ?? 0), 0),
       totalOutputTokens: ok.reduce((sum, row) => sum + (row.outputTokens ?? 0), 0),
       totalTokens: ok.reduce((sum, row) => sum + (row.totalTokens ?? 0), 0),
-      totalCostUsd: calculateCost(0, 0) === null || ok.some((row) => row.costUsd === null)
+      totalCostUsd: (request.strategy !== "dm" && calculateCost(0, 0) === null) || ok.some((row) => row.costUsd === null)
         ? null : ok.reduce((sum, row) => sum + (row.costUsd ?? 0), 0),
     },
   });

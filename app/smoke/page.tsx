@@ -83,6 +83,8 @@ export default function SmokePage() {
         <label htmlFor="strategy">Strategy</label>
         <select id="strategy" value={strategy} disabled={running} onChange={(event) => setStrategy(event.target.value as Strategy)}>
           <option value="llm">LLM</option>
+          <option value="dm">Decision model</option>
+          <option value="dm_llm">Decision model + LLM text</option>
         </select>
         <button type="submit" disabled={running}>Run smoke test</button>
       </form>

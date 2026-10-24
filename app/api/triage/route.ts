@@ -1,9 +1,8 @@
-import { PROMPT_VERSION } from "../../../lib/prompt";
 import {
   TriageRequestSchema,
   TriageResponseSchema,
 } from "../../../lib/schema";
-import { mapTriageError, triageTicket } from "../../../lib/triage";
+import { mapStrategyError, runStrategy } from "../../../lib/strategy";
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -27,12 +26,16 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { result, usage, model } = await triageTicket(requestParsed.data.ticket);
+    const { result, usage, model, promptVersion, confidence } = await runStrategy(
+      requestParsed.data.ticket, requestParsed.data.strategy,
+    );
     const responseParsed = TriageResponseSchema.safeParse({
       ...result,
-      promptVersion: PROMPT_VERSION,
+      promptVersion,
       model,
       usage,
+      confidence,
+      strategy: requestParsed.data.strategy,
     });
 
     if (!responseParsed.success) {
@@ -44,8 +47,8 @@ export async function POST(request: Request) {
 
     return Response.json(responseParsed.data);
   } catch (error) {
-    console.error("TRIAGE ERROR:", error);
-    const mapped = mapTriageError(error);
+    const mapped = mapStrategyError(error);
+    console.error("Triage failed", { outcome: mapped.error });
     return Response.json({ error: mapped.error }, { status: mapped.status });
   }
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
-import type { TriageResponse } from "../lib/schema";
+import type { Strategy, TriageResponse } from "../lib/schema";
 import { TriageResponseSchema } from "../lib/schema";
 
 const errorMessages: Record<string, string> = {
@@ -16,6 +16,7 @@ const errorMessages: Record<string, string> = {
 export default function TriagePage() {
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+  const [strategy, setStrategy] = useState<Strategy>("llm");
   const [result, setResult] = useState<TriageResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +33,7 @@ export default function TriagePage() {
       const response = await fetch("/api/triage", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ticket: { subject, body } }),
+        body: JSON.stringify({ ticket: { subject, body }, strategy }),
       });
       const data: unknown = await response.json();
 
@@ -77,6 +78,13 @@ export default function TriagePage() {
       </nav>
       <h1>Ticket triage</h1>
       <form onSubmit={triage} aria-busy={isLoading}>
+        <label htmlFor="strategy">Strategy</label>
+        <select id="strategy" value={strategy} disabled={isLoading}
+          onChange={(event) => setStrategy(event.target.value as Strategy)}>
+          <option value="llm">LLM</option>
+          <option value="dm">Decision model</option>
+          <option value="dm_llm">Decision model + LLM text</option>
+        </select>
         <label htmlFor="subject">Subject</label>
         <input
           id="subject"
@@ -105,11 +113,15 @@ export default function TriagePage() {
           <dl>
             <dt>Category</dt><dd>{result.category}</dd>
             <dt>Priority</dt><dd>{result.priority}</dd>
-            <dt>Summary</dt><dd>{result.summary}</dd>
-            <dt>Suggested action</dt><dd>{result.suggested_action}</dd>
+            <dt>Summary</dt><dd>{result.summary ?? "Not generated (decision model only)"}</dd>
+            <dt>Suggested action</dt><dd>{result.suggested_action ?? "Not generated (decision model only)"}</dd>
+            <dt>Strategy</dt><dd>{result.strategy}</dd>
             <dt>Prompt version</dt><dd>{result.promptVersion}</dd>
             <dt>Model</dt><dd>{result.model}</dd>
           </dl>
+          {result.confidence !== null && (
+            <p>Confidence: category {(result.confidence.category * 100).toFixed(1)} %, priority {(result.confidence.priority * 100).toFixed(1)} %</p>
+          )}
           <h3>Token usage</h3>
           {result.usage === null ? (
             <p>not reported</p>

@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { TriageSchema } from "./schema";
+import { TriageSchema, StrategySchema } from "./schema";
+export { StrategySchema, type Strategy } from "./schema";
 
-export const StrategySchema = z.enum(["llm"]);
 export const DatasetSchema = z.enum(["labelled_100", "all_500"]);
 export const OutcomeSchema = z.enum([
   "ok", "rejected_400", "invalid_model_output", "rate_limited",
@@ -61,7 +61,6 @@ export const SmokeRunRecordSchema = z.object({
 });
 export const SmokeResponseSchema = SmokeRunRecordSchema;
 
-export type Strategy = z.infer<typeof StrategySchema>;
 export type Dataset = z.infer<typeof DatasetSchema>;
 export type Outcome = z.infer<typeof OutcomeSchema>;
 export type SmokeRequest = z.infer<typeof SmokeRequestSchema>;
