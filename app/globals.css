@@ -103,3 +103,71 @@ button:disabled {
   margin: 4px 0 0;
   white-space: pre-wrap;
 }
+
+.smoke,
+.admin {
+  max-width: 1440px;
+  margin: 48px auto;
+  padding: 24px;
+}
+
+.smoke nav,
+.admin nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.smoke form {
+  max-width: 680px;
+}
+
+.smoke select {
+  padding: 12px;
+  border: 1px solid #ccd3df;
+  border-radius: 8px;
+  font: inherit;
+  background: white;
+}
+
+.smoke .table-scroll,
+.admin .table-scroll {
+  overflow-x: auto;
+  margin-top: 24px;
+}
+
+.smoke table,
+.admin table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+}
+
+.smoke th,
+.smoke td,
+.admin th,
+.admin td {
+  border: 1px solid #ccd3df;
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.smoke th,
+.admin th {
+  background: #eaf0f9;
+}
+
+.smoke .mismatch {
+  background: #fce2e4;
+  color: #8b1e27;
+}
+
+.smoke-summary {
+  margin-top: 24px;
+  padding: 20px;
+  border: 1px solid #ccd3df;
+  border-radius: 8px;
+  background: white;
+  overflow-wrap: anywhere;
+}
